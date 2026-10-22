@@ -1,0 +1,11 @@
+# Tests and survey analysis (not needed by the deployed app)
+-r requirements.txt
+pytest>=8
+scipy>=1.11
+statsmodels>=0.14
+
+# Rebuilding the 3D example (tools/build_example_scan.py)
+nibabel>=5
+scikit-image>=0.22
+fast-simplification>=0.1
+remotezip>=0.12

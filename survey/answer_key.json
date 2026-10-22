@@ -1,0 +1,299 @@
+{
+  "_about": "Single source of truth for scoring survey responses. Titles and options must match survey/build_form.gs word for word (enforced by tests/test_survey_analysis.py). The A/B meaning lives here and in the README only; it never appears in the form.",
+  "version": 1,
+  "timestamp_column": "Timestamp",
+  "consent": {
+    "code": "consent",
+    "yes": "Yes, I agree to take part",
+    "no": "No, I do not want to take part"
+  },
+  "groups": {
+    "code": "group",
+    "labels": {
+      "A": "Shown the diagram",
+      "B": "Verbal discussion only"
+    }
+  },
+  "composites": {
+    "Understanding": [
+      "und_why",
+      "und_what",
+      "und_after",
+      "und_risks"
+    ],
+    "Knowledge": [
+      "k_reason",
+      "k_after",
+      "k_followup",
+      "k_symptoms"
+    ],
+    "Confidence": [
+      "conf_clear",
+      "conf_risks",
+      "conf_explain"
+    ],
+    "Satisfaction": [
+      "sat_clear",
+      "sat_time",
+      "sat_overall"
+    ]
+  },
+  "questions": [
+    {
+      "code": "consent",
+      "title": "Do you agree to take part in this survey?",
+      "type": "multiple_choice",
+      "required": true,
+      "options": [
+        "Yes, I agree to take part",
+        "No, I do not want to take part"
+      ]
+    },
+    {
+      "code": "group",
+      "title": "Clinic code",
+      "type": "dropdown",
+      "required": true,
+      "options": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "code": "und_why",
+      "title": "I understand why this procedure is being recommended",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "und_what",
+      "title": "I understand what will happen during the procedure",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "und_after",
+      "title": "I understand what I will need to do after the procedure (such as taking medicine and coming back for check-ups)",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "und_risks",
+      "title": "I understand the main risks and benefits of the procedure of the procedure",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "k_reason",
+      "title": "What is the main reason for this procedure?",
+      "type": "multiple_choice",
+      "required": true,
+      "options": [
+        "To open a blocked artery, like a heart procedure",
+        "To lower the pressure in my head that causes my symptoms",
+        "To remove a tumor that is pressing on my brain",
+        "I'm not sure — please explain this again"
+      ],
+      "correct": [
+        "To lower the pressure in my head that causes my symptoms"
+      ],
+      "not_sure": "I'm not sure — please explain this again"
+    },
+    {
+      "code": "k_after",
+      "title": "After the procedure, what will you most likely need to do?",
+      "type": "multiple_choice",
+      "required": true,
+      "options": [
+        "Stay in bed at home for about a month",
+        "Come back every week for a shot of medicine",
+        "Take a blood-thinning medicine for a few months",
+        "I'm not sure — please explain this again"
+      ],
+      "correct": [
+        "Take a blood-thinning medicine for a few months"
+      ],
+      "not_sure": "I'm not sure — please explain this again"
+    },
+    {
+      "code": "k_followup",
+      "title": "Why are follow-up visits needed?",
+      "type": "multiple_choice",
+      "required": true,
+      "options": [
+        "To check that the stent works and my symptoms improve",
+        "To have the stent taken out after a few weeks",
+        "To put in a new stent at each visit",
+        "I'm not sure — please explain this again"
+      ],
+      "correct": [
+        "To check that the stent works and my symptoms improve"
+      ],
+      "not_sure": "I'm not sure — please explain this again"
+    },
+    {
+      "code": "k_symptoms",
+      "title": "Which symptoms is this procedure meant to help?",
+      "type": "checkbox",
+      "required": true,
+      "options": [
+        "Headaches or pressure in the head",
+        "A whooshing sound in the ear",
+        "Blurry vision or other vision problems",
+        "Stomach pain",
+        "I'm not sure"
+      ],
+      "correct": [
+        "Headaches or pressure in the head",
+        "A whooshing sound in the ear",
+        "Blurry vision or other vision problems"
+      ],
+      "not_sure": "I'm not sure"
+    },
+    {
+      "code": "conf_clear",
+      "title": "How clear are you about what will happen?",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "conf_risks",
+      "title": "How comfortable do you feel with the risks and benefits?",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "conf_explain",
+      "title": "If a friend asked about your procedure, how well could you explain it?",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "sat_clear",
+      "title": "The explanation was clear and easy to follow",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "sat_time",
+      "title": "I had enough time to ask questions",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "sat_overall",
+      "title": "Overall, how would you rate today's discussion?",
+      "type": "scale",
+      "required": true,
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "best": 5
+      }
+    },
+    {
+      "code": "respondent",
+      "title": "Who is filling out this survey?",
+      "type": "multiple_choice",
+      "required": false,
+      "options": [
+        "The patient",
+        "A family member or caregiver",
+        "Prefer not to say"
+      ]
+    },
+    {
+      "code": "age",
+      "title": "What is your age range?",
+      "type": "multiple_choice",
+      "required": false,
+      "options": [
+        "18 to 34",
+        "35 to 49",
+        "50 to 64",
+        "65 or older",
+        "Prefer not to say"
+      ]
+    },
+    {
+      "code": "prior_proc",
+      "title": "Have you had a procedure on your brain or spine before?",
+      "type": "multiple_choice",
+      "required": false,
+      "options": [
+        "Yes",
+        "No",
+        "Prefer not to say"
+      ]
+    },
+    {
+      "code": "familiarity",
+      "title": "Before today, how familiar were you with medical procedures?",
+      "type": "multiple_choice",
+      "required": false,
+      "options": [
+        "Very familiar (I work in health care or have had several procedures)",
+        "Somewhat familiar",
+        "Not very familiar (this is new to me)",
+        "Prefer not to say"
+      ]
+    },
+    {
+      "code": "open_help",
+      "title": "What would have helped you understand better?",
+      "type": "paragraph",
+      "required": false
+    },
+    {
+      "code": "open_feedback",
+      "title": "Do you have any other comments about today's visit?",
+      "type": "paragraph",
+      "required": false
+    }
+  ]
+}

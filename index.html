@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Venous Pressure Map</title>
+  <!--
+    GitHub Pages entry point. The whole Streamlit app (app.py + venous/) runs
+    inside the visitor's browser via stlite (Pyodide): there is no server, so
+    uploaded images never leave the computer. First load takes ~20 s while
+    Python and the packages download; later loads are cached by the browser.
+    To change the app, edit app.py / venous/*.py as usual. If you add a new
+    .py file, add it to FILES below.
+  -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.9.2/build/stlite.css" />
+  <style>
+    body { margin: 0; background: #f5f7fb; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    #splash { position: fixed; inset: 0; display: grid; place-items: center; color: #13294b; }
+    #splash .box { text-align: center; }
+    #splash h1 { font-size: 1.6rem; margin: 0 0 6px; }
+    #splash p { color: #5b6b7f; margin: 0; }
+    .spin { width: 34px; height: 34px; margin: 18px auto 0; border-radius: 50%;
+            border: 4px solid #dfe5ee; border-top-color: #1f4e79; animation: s 1s linear infinite; }
+    @keyframes s { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="splash"><div class="box">
+    <h1>Venous Pressure Map</h1>
+    <p>Loading… the first visit takes about 20 seconds.</p>
+    <p>Everything runs in your browser. Images are never uploaded.</p>
+    <div class="spin"></div>
+  </div></div>
+  <div id="root"></div>
+  <script type="module">
+    import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.9.2/build/stlite.js";
+
+    const FILES = [
+      "app.py",
+      "venous/__init__.py",
+      "venous/anatomy.py",
+      "venous/demo.py",
+      "venous/export.py",
+      "venous/render.py",
+      "venous/sinus3d.py",
+      "venous/viewer3d.html",
+      "venous/save.html",
+      "storage.json",
+      "venous/data/example_scan.npz",
+    ];
+    // Fetch fresh copies on every load: browsers (and GitHub Pages, ~10 min) cache
+    // these files, and a mix of old and new files breaks the app after an update.
+    const bust = Date.now();
+    const files = Object.fromEntries(FILES.map((f) => [f, { url: `./${f}?v=${bust}` }]));
+
+    mount(
+      {
+        entrypoint: "app.py",
+        files,
+        requirements: [
+          "matplotlib",
+          "pillow",
+          "pandas",
+          "numpy",
+          "openpyxl",
+        ],
+        streamlitConfig: {
+          "theme.base": "light",
+          "theme.primaryColor": "#1f4e79",
+          "theme.backgroundColor": "#f5f7fb",
+          "theme.secondaryBackgroundColor": "#e9eef5",
+          "theme.textColor": "#1b2533",
+          "client.toolbarMode": "minimal",
+        },
+      },
+      document.getElementById("root"),
+    );
+    // Hide the splash once Streamlit has drawn something.
+    new MutationObserver((_, obs) => {
+      if (document.querySelector("#root .stApp")) {
+        document.getElementById("splash").remove();
+        obs.disconnect();
+      }
+    }).observe(document.getElementById("root"), { childList: true, subtree: true });
+  </script>
+</body>
+</html>

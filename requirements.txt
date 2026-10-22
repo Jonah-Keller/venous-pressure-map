@@ -1,0 +1,9 @@
+# Web app
+streamlit>=1.50
+
+# Images, figures and exports
+Pillow>=10.0
+matplotlib>=3.8
+numpy>=1.26
+pandas>=2.0
+openpyxl>=3.1

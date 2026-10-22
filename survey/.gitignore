@@ -1,0 +1,5 @@
+# Real survey responses and results stay out of git (anonymous, but free text can identify people).
+results/
+*.csv
+!example_responses_SYNTHETIC.csv
+__pycache__/

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" />
+<!-- "Save to study records" button. Filled in by app.py: sends one case to the
+     Google Sheet web app in storage.json. The team passcode is remembered in
+     this browser only (never stored in GitHub). -->
+<style>
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; color:#1b2533; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  input { font:14px inherit; padding:9px 10px; border:1px solid #cfd6e0; border-radius:8px; width:170px; }
+  button { font:600 14px inherit; padding:10px 16px; border:0; border-radius:8px; background:#1f4e79; color:#fff; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  #msg { font-size:13.5px; margin-top:8px; color:#5b6b7f; min-height:18px; }
+  #msg.ok { color:#1e7a4b; } #msg.bad { color:#b3261e; }
+</style></head><body>
+<div class="row">
+  <input id="pass" type="password" placeholder="Team passcode" autocomplete="off" />
+  <button id="save">Save to study records</button>
+</div>
+<div id="msg"></div>
+<script>
+const S = __SAVE__;
+const pass = document.getElementById("pass"), btn = document.getElementById("save"), msg = document.getElementById("msg");
+try { pass.value = localStorage.getItem("vpm_passcode") || ""; } catch (e) {}
+if (!S.endpoint) { btn.disabled = true; pass.style.display = "none";
+  msg.textContent = "Saving isn't set up yet (see storage/README.md). Use the CSV download for now."; }
+else if (!S.ready) { btn.disabled = true; msg.textContent = S.why; }
+btn.addEventListener("click", async () => {
+  btn.disabled = true; msg.className = ""; msg.textContent = "Saving…";
+  try {
+    const r = await fetch(S.endpoint, { method: "POST", body: JSON.stringify({ passcode: pass.value, record: S.record }) });
+    const out = await r.json();
+    if (out.ok) {
+      try { localStorage.setItem("vpm_passcode", pass.value); } catch (e) {}
+      msg.className = "ok";
+      msg.textContent = (out.updated ? "Updated " : "Saved ") + S.record.study_id + " (" + S.record.procedure_date + ").";
+    } else { msg.className = "bad"; msg.textContent = out.error || "Not saved."; }
+  } catch (e) {
+    msg.className = "bad"; msg.textContent = "Couldn't reach the study sheet. Check the internet connection, or use the CSV download.";
+  }
+  btn.disabled = false;
+});
+</script></body></html>

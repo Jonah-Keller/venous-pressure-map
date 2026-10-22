@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<!--
+  3D venous sinus viewer (three.js), filled in by venous/sinus3d.py:viewer_html().
+  Everything here runs in the browser, so every button and slider responds
+  instantly. Coordinates arrive in patient RAS millimetres; shown with +Y up.
+  Main buttons: Before/After stent, Blood flow, Explain, Handout, Full screen.
+  "More" holds the views, value labels, skull, CT slices, Save picture and
+  Print handout. The handout is drawn here too, in the same style.
+-->
+<style>
+  :root { --bg:#0b1424; --panel:#142036; --line:#273a58; --ink:#e8eef6; --mut:#9fb0c6; --accent:#2c7bb6; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+  #wrap { position:relative; width:100%; height:100%; background:var(--bg); }
+  #view { position:absolute; inset:0; }
+  .bar { position:absolute; left:12px; right:12px; display:flex; flex-wrap:wrap; gap:8px;
+    z-index:5; pointer-events:none; }
+  #bar1 { top:12px; } #bar2 { top:58px; display:none; }
+  .grp { display:flex; gap:3px; padding:3px; background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; pointer-events:auto; }
+  .grp button { background:transparent; border:0; color:var(--mut); font:600 14px/1 inherit;
+    padding:9px 14px; border-radius:7px; cursor:pointer; }
+  .grp button:hover { color:var(--ink); }
+  .grp button.on { background:var(--accent); color:#fff; }
+  #slicers { position:absolute; left:12px; bottom:52px; z-index:5; display:none; padding:10px 14px;
+    background:#142036ee; border:1px solid var(--line); border-radius:10px; }
+  #slicers label { display:grid; grid-template-columns:96px 180px; align-items:center; gap:8px;
+    font-size:12px; color:var(--mut); margin:5px 0; }
+  #slicers input { width:180px; accent-color:var(--accent); }
+  #title { position:absolute; left:16px; bottom:16px; font-weight:700; font-size:17px; z-index:4; }
+  #title small { display:block; font-weight:500; color:var(--mut); font-size:12px; margin-top:3px; }
+  #legend { position:absolute; left:16px; bottom:64px; width:190px; z-index:4; font-size:11.5px; color:var(--mut); }
+  #legend .bar2 { height:9px; border-radius:5px; margin:6px 0 3px; }
+  #legend .ticks { display:flex; justify-content:space-between; }
+  #legend .row { display:flex; align-items:center; gap:7px; margin-top:5px; }
+  .sw { width:12px; height:12px; border-radius:3px; display:inline-block; }
+  .ring { width:10px; height:10px; border-radius:50%; border:2.5px solid #ff4d4d; display:inline-block; }
+  #panel { position:absolute; top:12px; right:12px; width:260px; z-index:6; padding:14px 16px;
+    background:#142036f2; border:1px solid var(--line); border-radius:12px; }
+  #panel .k { font-size:11px; letter-spacing:.05em; color:var(--mut); font-weight:700; text-transform:uppercase; }
+  #panel .big { font-size:30px; font-weight:800; margin:2px 0 2px; }
+  #panel .where { font-size:12.5px; color:var(--mut); margin-bottom:10px; }
+  #panel ol { margin:0; padding:0; list-style:none; counter-reset:s; }
+  #panel li { position:relative; padding:7px 0 7px 30px; font-size:13.5px; line-height:1.3;
+    border-top:1px solid var(--line); }
+  #panel li::before { counter-increment:s; content:counter(s); position:absolute; left:0; top:7px;
+    width:20px; height:20px; border-radius:50%; background:var(--line); color:var(--ink);
+    font-size:11px; font-weight:700; display:grid; place-items:center; }
+  #panel li.last { font-weight:700; }
+  #panel li.last::before { background:var(--res); }
+  .lbl { text-align:center; line-height:1; }
+  .lbl b { display:inline-block; font:800 14px/1 inherit; color:#0b1424; background:#fff;
+    padding:4px 9px; border-radius:999px; border:3px solid var(--c); box-shadow:0 1px 5px #0007; }
+  .lbl span { display:block; margin-top:3px; font-size:11px; color:#dfe7f2; text-shadow:0 1px 3px #000; }
+  #err { position:absolute; inset:0; display:none; place-items:center; color:var(--mut); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="view"></div>
+  <div class="bar" id="bar1">
+    <div class="grp" id="g-phase">
+      <button data-v="before" class="on">Before stent</button>
+      <button data-v="after">After stent</button>
+    </div>
+    <div class="grp" id="g-main">
+      <button data-v="flow">Blood flow</button>
+      <button data-v="panel" class="on">Explain</button>
+      <button data-v="handout">Handout ⤓</button>
+      <button data-v="full">Full screen</button>
+      <button data-v="more">More ▾</button>
+    </div>
+  </div>
+  <div class="bar" id="bar2">
+    <div class="grp" id="g-view">
+      <button data-v="back" class="on">Back</button>
+      <button data-v="side">Side</button>
+      <button data-v="top">Top</button>
+    </div>
+    <div class="grp" id="g-layers">
+      <button data-v="values" class="on">Values</button>
+      <button data-v="skull" class="on">Skull</button>
+      <button data-v="slices">CT slices</button>
+    </div>
+    <div class="grp"><button id="save">Save picture</button><button id="print">Print handout</button></div>
+  </div>
+  <div id="slicers">
+    <label>Left ↔ Right <input type="range" id="sx" /></label>
+    <label>Back ↔ Front <input type="range" id="sy" /></label>
+    <label>Down ↔ Up <input type="range" id="sz" /></label>
+  </div>
+  <div id="panel"></div>
+  <div id="legend"></div>
+  <div id="title"></div>
+  <div id="err">The 3D view needs WebGL, which this browser has turned off.</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+<script>
+const SOURCE = "<!doctype html>\n" + document.documentElement.outerHTML;   // for "open in new tab"
+const D = __PAYLOAD__;
+
+// ---------- helpers ----------
+function bytes(b64) { const s = atob(b64), u = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+const f32 = (b) => new Float32Array(bytes(b).buffer);
+const u32 = (b) => new Uint32Array(bytes(b).buffer);
+const T = (x, y, z) => new THREE.Vector3(x, z, -y);            // RAS mm -> three (Y up)
+function toThree(a) { const o = new Float32Array(a.length);
+  for (let i = 0; i < a.length; i += 3) { o[i] = a[i]; o[i + 1] = a[i + 2]; o[i + 2] = -a[i + 1]; } return o; }
+const $ = (id) => document.getElementById(id);
+
+const state = { phase: "before", flow: false, panel: true, values: true, skull: true, slices: false };
+const sideSign = D.side === "Left" ? -1 : 1;
+
+// ---------- scene ----------
+const host = $("view");
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); }
+catch (e) { $("err").style.display = "grid"; throw e; }
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x0b1424);
+host.appendChild(renderer.domElement);
+const labelR = new THREE.CSS2DRenderer();
+labelR.domElement.style.position = "absolute"; labelR.domElement.style.top = "0";
+labelR.domElement.style.pointerEvents = "none";
+host.appendChild(labelR.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1, 1, 3000);
+scene.add(camera);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x1b2a44, 0.75));
+const key = new THREE.DirectionalLight(0xffffff, 0.85); key.position.set(60, 120, 160); camera.add(key);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.rotateSpeed = 0.7;
+
+// ---------- vessel ----------
+const vAfter = toThree(f32(D.mesh.verts)), vBefore = toThree(f32(D.mesh.verts_before));
+const cBefore = bytes(D.mesh.colour_before), cAfter = bytes(D.mesh.colour_after);
+const geo = new THREE.BufferGeometry();
+geo.setIndex(new THREE.BufferAttribute(u32(D.mesh.faces), 1));
+geo.setAttribute("position", new THREE.BufferAttribute(vBefore.slice(), 3));
+geo.setAttribute("color", new THREE.BufferAttribute(new Uint8Array(cBefore), 3, true));
+geo.computeVertexNormals(); geo.computeBoundingSphere();
+const vesselMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.05,
+  transparent: true, opacity: 1 });
+scene.add(new THREE.Mesh(geo, vesselMat));
+const centre = geo.boundingSphere.center.clone(), R = geo.boundingSphere.radius;
+controls.target.copy(centre);
+
+// narrowing ring and stent
+const ring = new THREE.Group(), stent = new THREE.Group();
+if (D.stenosis) {
+  const m = new THREE.Mesh(new THREE.TorusGeometry(D.stenosis.r * 1.9, 0.75, 12, 60),
+    new THREE.MeshBasicMaterial({ color: 0xff4d4d }));
+  m.position.copy(T(...D.stenosis.pos));
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), T(...D.stenosis.dir).normalize());
+  ring.add(m);
+  for (const line of D.stent) {
+    const g = new THREE.BufferGeometry().setFromPoints(line.map((p) => T(...p)));
+    stent.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xdfe5ee })));
+  }
+}
+scene.add(ring, stent);
+
+// skull
+const sg = new THREE.BufferGeometry();
+sg.setIndex(new THREE.BufferAttribute(u32(D.skull.faces), 1));
+sg.setAttribute("position", new THREE.BufferAttribute(toThree(f32(D.skull.verts)), 3));
+sg.computeVertexNormals();
+const skull = new THREE.Mesh(sg, new THREE.MeshStandardMaterial({ color: 0xe9dcc3, roughness: 0.9,
+  transparent: true, opacity: 0.11, depthWrite: false, side: THREE.DoubleSide }));
+scene.add(skull);
+
+// ---------- labels: a whole number and a plain place name ----------
+const labelSets = {};
+for (const ph of ["before", "after"]) {
+  labelSets[ph] = D["labels_" + ph].map((L) => {
+    const div = document.createElement("div");
+    div.className = "lbl"; div.title = L.title; div.style.setProperty("--c", L.colour);
+    div.innerHTML = `<b>${L.value}</b>${L.place ? `<span>${L.place}</span>` : ""}`;
+    const o = new THREE.CSS2DObject(div); o.position.copy(T(...L.p)); scene.add(o);
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([T(...L.a), T(...L.p)]),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+    scene.add(line);
+    return { L, o, line };
+  });
+}
+
+// ---------- CT slices ----------
+const slices = [];
+{
+  const vol = bytes(D.vol.data), [nx, ny, nz] = D.vol.shape, s = D.vol.spacing, o = D.vol.origin;
+  const mm = (ax, i) => o[ax] + i * s;
+  const specs = [
+    { id: "sx", n: nx, w: ny, h: nz, get: (i, c, r) => vol[(i * ny + c) * nz + r] },     // sagittal
+    { id: "sy", n: ny, w: nx, h: nz, get: (i, c, r) => vol[(c * ny + i) * nz + r] },     // coronal
+    { id: "sz", n: nz, w: nx, h: ny, get: (i, c, r) => vol[(c * ny + r) * nz + i] },     // axial
+  ];
+  const ctr = [mm(0, (nx - 1) / 2), mm(1, (ny - 1) / 2), mm(2, (nz - 1) / 2)];
+  const start = D.stenosis ? D.stenosis.pos : ctr;
+  specs.forEach((sp, ax) => {
+    const data = new Uint8Array(sp.w * sp.h);
+    const tex = new THREE.DataTexture(data, sp.w, sp.h, THREE.LuminanceFormat);
+    tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter;
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(sp.w * s, sp.h * s),
+      new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, transparent: true, opacity: 0.93 }));
+    if (ax === 0) plane.rotation.y = Math.PI / 2;
+    if (ax === 2) plane.rotation.x = -Math.PI / 2;
+    plane.visible = false; scene.add(plane);
+    const input = $(sp.id);
+    input.min = 0; input.max = sp.n - 1;
+    input.value = Math.round(Math.min(sp.n - 1, Math.max(0, (start[ax] - o[ax]) / s)));
+    const update = () => {
+      const i = +input.value;
+      for (let r = 0; r < sp.h; r++) for (let c = 0; c < sp.w; c++) data[r * sp.w + c] = sp.get(i, c, r);
+      tex.needsUpdate = true;
+      const p = [...ctr]; p[ax] = mm(ax, i);
+      plane.position.copy(T(p[0], p[1], p[2]));
+    };
+    input.addEventListener("input", update); update();
+    slices.push(plane);
+  });
+}
+
+// ---------- blood flow (illustration: speed ~ flow / cross-section) ----------
+const paths = D.paths.map((p) => ({ n: p.n, pts: f32(p.pts), a: f32(p.a), b: f32(p.b),
+  rb: f32(p.r_before), ra: f32(p.r_after), qb: p.q_before, qa: p.q_after }));
+const N = 900, BASE = 22, R0 = 3.5;
+const pPos = new Float32Array(N * 3);
+const P = Array.from({ length: N }, () => spawn({}, true));
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xeafcff, size: 1.7,
+  transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+particles.visible = false; scene.add(particles);
+
+function spawn(p, anywhere) {
+  const q = paths.map((pa) => (state.phase === "before" ? pa.qb : pa.qa));
+  p.side = Math.random() * (q[0] + q[1]) < q[0] ? 0 : 1;
+  p.s = anywhere ? Math.random() * (paths[p.side].n - 2) : Math.random() * 2;
+  p.th = Math.random() * 6.283; p.rho = Math.sqrt(Math.random()) * 0.7;
+  return p;
+}
+function stepFlow(dt) {
+  for (let k = 0; k < N; k++) {
+    const p = P[k], pa = paths[p.side], r = state.phase === "before" ? pa.rb : pa.ra;
+    const q = state.phase === "before" ? pa.qb : pa.qa;
+    let i = Math.floor(p.s), f = p.s - i;
+    const ri = r[i] * (1 - f) + r[i + 1] * f;
+    p.s += Math.min(170, (BASE * q * R0 * R0) / (ri * ri)) * dt;
+    if (p.s >= pa.n - 1.01) spawn(p, false);
+    i = Math.floor(p.s); f = p.s - i;
+    const j = 3 * i, j2 = j + 3, rr = r[i] * (1 - f) + r[Math.min(i + 1, pa.n - 1)] * f;
+    const cx = pa.pts[j] * (1 - f) + pa.pts[j2] * f, cy = pa.pts[j + 1] * (1 - f) + pa.pts[j2 + 1] * f,
+          cz = pa.pts[j + 2] * (1 - f) + pa.pts[j2 + 2] * f;
+    const c = Math.cos(p.th) * p.rho * rr, s = Math.sin(p.th) * p.rho * rr;
+    const x = cx + c * pa.a[j] + s * pa.b[j], y = cy + c * pa.a[j + 1] + s * pa.b[j + 1],
+          z = cz + c * pa.a[j + 2] + s * pa.b[j + 2];
+    pPos[3 * k] = x; pPos[3 * k + 1] = z; pPos[3 * k + 2] = -y;
+  }
+  pGeo.attributes.position.needsUpdate = true;
+}
+for (let w = 0; w < 120; w++) stepFlow(0.05);    // warm up so the vessel starts full
+
+// ---------- explain panel ----------
+const CHAIN = {
+  before: ["The vein is narrowed", "Blood slows and backs up behind the narrowing",
+           "Pressure inside the head goes up", "Fluid around the brain can't drain well",
+           "Headaches · vision problems · whooshing in the ears"],
+  after: ["A stent holds the vein open", "Blood flows through freely", "Pressure inside the head comes down",
+          "Fluid drains more normally", "Symptoms often improve"],
+};
+function drawPanel() {
+  const el = $("panel");
+  el.style.display = state.panel ? "block" : "none";
+  if (!state.panel) return;
+  const ph = state.phase, drop = D["drop_" + ph];
+  el.style.setProperty("--res", ph === "before" ? "#c0392b" : "#2e8b57");
+  const head = !D.stenosis
+    ? `<div class="k">No narrowing found</div><div class="where">These readings don't show a pressure drop between neighbouring spots.</div>`
+    : `<div class="k">Pressure drop at the narrowing</div><div class="big">${drop || "—"}</div>` +
+      `<div class="where">${D.stenosis.where}</div>`;
+  el.innerHTML = head + "<ol>" + CHAIN[ph].map((t, i) => `<li class="${i === 4 ? "last" : ""}">${t}</li>`).join("") + "</ol>";
+}
+
+// ---------- legend, title ----------
+$("legend").innerHTML =
+  `<div><b style="color:#e8eef6">Pressure</b> (${D.unit})</div>` +
+  `<div class="bar2" style="background:linear-gradient(90deg,${D.scale.stops.join(",")})"></div>` +
+  `<div class="ticks">${D.scale.ticks.map((t) => `<span>${t}</span>`).join("")}</div>` +
+  `<div class="row"><span class="sw" style="background:#8b95a5"></span>not measured</div>` +
+  (D.stenosis ? `<div class="row"><span class="ring"></span>narrowing</div>` : "");
+function drawTitle() {
+  const after = state.phase === "after";
+  const notes = [];
+  if (after && D.illustrative) notes.push("some after-stent values are illustrated");
+  if (state.flow) notes.push("blood flow is an illustration");
+  notes.push("example anatomy, not this patient's scan");
+  $("title").innerHTML = (after ? "After the stent" : "Before the stent") + `<small>${notes.join(" · ")}</small>`;
+}
+
+// ---------- apply state ----------
+function apply() {
+  const before = state.phase === "before";
+  geo.attributes.position.array.set(before ? vBefore : vAfter);
+  geo.attributes.position.needsUpdate = true;
+  geo.attributes.color.array.set(before ? cBefore : cAfter);
+  geo.attributes.color.needsUpdate = true;
+  geo.computeVertexNormals();
+  ring.visible = before; stent.visible = !before;
+  for (const ph of ["before", "after"])
+    labelSets[ph].forEach(({ o, line }) => { o.visible = line.visible = state.values && ph === state.phase; });
+  skull.visible = state.skull;
+  slices.forEach((s) => (s.visible = state.slices));
+  $("slicers").style.display = state.slices ? "block" : "none";
+  particles.visible = state.flow;
+  vesselMat.opacity = state.flow ? 0.3 : 1; vesselMat.depthWrite = !state.flow;
+  for (const b of document.querySelectorAll("#g-main button, #g-layers button"))
+    if (b.dataset.v in state) b.classList.toggle("on", !!state[b.dataset.v]);
+  drawPanel(); drawTitle();
+}
+
+// ---------- camera ----------
+function eyeFor(v) {
+  const d = { back: [sideSign * 0.55, 0.32, 1], side: [sideSign, 0.12, 0.12], top: [0, 1, 0.32] }[v];
+  const fit = (R / Math.sin((camera.fov * Math.PI) / 360)) * 1.12;
+  return new THREE.Vector3(...d).normalize().multiplyScalar(fit).add(centre);
+}
+let tween = null;
+function goTo(v, instant) {
+  const to = eyeFor(v);
+  if (instant) { camera.position.copy(to); return; }
+  tween = { from: camera.position.clone(), to, t0: performance.now() };
+}
+
+// ---------- pictures: one view, or the two-panel handout ----------
+function rr(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
+
+function drawLabels(g, phase, w, h, k) {
+  if (!state.values) return;
+  const boxes = [];
+  const hit = (r) => boxes.some((q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h);
+  for (const { L, o } of labelSets[phase]) {
+    const p = o.position.clone().project(camera);
+    const x0 = (p.x + 1) / 2 * w, y0 = (1 - p.y) / 2 * h;
+    g.font = `800 ${14 * k}px sans-serif`;
+    const bw = g.measureText(L.value).width + 18 * k, bh = 24 * k;
+    // nudge the number pill until it doesn't cover another label
+    let x = x0, y = y0;
+    for (const [dx, dy] of [[0, 0], [0, -1], [0, 1], [1, 0], [-1, 0], [1, -1], [-1, 1], [0, -2], [0, 2]]) {
+      const r = { x: x0 + dx * bw * 0.9 - bw / 2, y: y0 + dy * bh * 1.1 - bh / 2, w: bw, h: bh };
+      if (!hit(r)) { x = x0 + dx * bw * 0.9; y = y0 + dy * bh * 1.1; break; }
+    }
+    boxes.push({ x: x - bw / 2, y: y - bh / 2, w: bw, h: bh });
+    g.fillStyle = "#fff"; g.strokeStyle = L.colour; g.lineWidth = 3 * k;
+    rr(g, x - bw / 2, y - bh / 2, bw, bh, bh / 2); g.fill(); g.stroke();
+    g.fillStyle = "#0b1424"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(L.value, x, y + k);
+    if (L.place) {   // place name only where it fits without overlapping
+      g.font = `500 ${11 * k}px sans-serif`;
+      const tw = g.measureText(L.place).width, r = { x: x - tw / 2, y: y + bh / 2 + 2 * k, w: tw, h: 14 * k };
+      if (!hit(r)) {
+        boxes.push(r);
+        g.fillStyle = "#dfe7f2"; g.fillText(L.place, x, y + bh / 2 + 9 * k);
+      }
+    }
+  }
+}
+
+/** Render the current view at w x h for one phase (blood flow off) onto a new canvas. */
+function snapshot(phase, w, h, k) {
+  const keep = { phase: state.phase, flow: state.flow };
+  Object.assign(state, { phase, flow: false }); apply();
+  renderer.setPixelRatio(1); renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.render(scene, camera);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"); g.drawImage(renderer.domElement, 0, 0);
+  drawLabels(g, phase, w, h, k);
+  Object.assign(state, keep); apply();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); resize();
+  return c;
+}
+
+function download(canvas, name) {
+  const a = document.createElement("a");
+  a.download = name; a.href = canvas.toDataURL("image/png"); a.click();
+}
+
+function savePicture() {
+  const w = renderer.domElement.width, h = renderer.domElement.height;
+  const c = snapshot(state.phase, w, h, w / host.clientWidth);
+  const g = c.getContext("2d"), k = w / host.clientWidth;
+  g.fillStyle = "#e8eef6"; g.font = `700 ${17 * k}px sans-serif`; g.textAlign = "left";
+  g.fillText(state.phase === "before" ? "Before the stent" : "After the stent", 16 * k, h - 18 * k);
+  download(c, `venous_3d_${state.phase}.png`);
+}
+
+/** Landscape page in the viewer's style: before and after side by side, each
+    with the pressure drop and the cause-and-effect steps. Uses the current angle. */
+function handoutCanvas() {
+  const W = 3200, H = 2000, pad = 110, colW = (W - 3 * pad) / 2, shotH = 980;
+  const page = document.createElement("canvas"); page.width = W; page.height = H;
+  const g = page.getContext("2d");
+  g.fillStyle = "#0b1424"; g.fillRect(0, 0, W, H);
+  g.textAlign = "left"; g.textBaseline = "alphabetic";
+  g.fillStyle = "#e8eef6"; g.font = "800 66px sans-serif";
+  g.fillText("Why the pressure is high, and how a stent helps", pad, 150);
+  const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const notes = [today, "example anatomy, not your own scan"];
+  if (D.illustrative) notes.push("some after-stent values are illustrated");
+  g.fillStyle = "#9fb0c6"; g.font = "500 32px sans-serif"; g.fillText(notes.join("  ·  "), pad, 205);
+
+  ["before", "after"].forEach((ph, i) => {
+    const x = pad + i * (colW + pad), y = 270;
+    g.fillStyle = "#142036"; g.strokeStyle = "#273a58"; g.lineWidth = 3;
+    rr(g, x, y, colW, H - y - 150, 36); g.fill(); g.stroke();
+    g.fillStyle = ph === "before" ? "#c0392b" : "#2e8b57";
+    rr(g, x + 40, y + 36, 380, 62, 31); g.fill();
+    g.fillStyle = "#fff"; g.font = "800 30px sans-serif"; g.textBaseline = "middle";
+    g.fillText(ph === "before" ? "BEFORE THE STENT" : "AFTER THE STENT", x + 70, y + 68);
+    const shot = snapshot(ph, Math.round(colW - 80), shotH, 2.2);
+    g.save(); rr(g, x + 40, y + 120, colW - 80, shotH, 24); g.clip(); g.drawImage(shot, x + 40, y + 120); g.restore();
+
+    let ty = y + 120 + shotH + 70;
+    g.textBaseline = "alphabetic";
+    if (D.stenosis) {
+      g.fillStyle = "#9fb0c6"; g.font = "700 26px sans-serif";
+      g.fillText("PRESSURE DROP AT THE NARROWING", x + 40, ty);
+      g.fillStyle = "#e8eef6"; g.font = "800 64px sans-serif";
+      g.fillText(D["drop_" + ph] || "—", x + 40, ty + 72);
+      ty += 130;
+    }
+    CHAIN[ph].forEach((t, n) => {
+      const cy = ty + n * 62, last = n === CHAIN[ph].length - 1;
+      g.fillStyle = last ? (ph === "before" ? "#c0392b" : "#2e8b57") : "#273a58";
+      g.beginPath(); g.arc(x + 60, cy - 11, 20, 0, 6.283); g.fill();
+      g.fillStyle = "#fff"; g.font = "700 22px sans-serif"; g.textAlign = "center";
+      g.fillText(String(n + 1), x + 60, cy - 3);
+      g.textAlign = "left"; g.fillStyle = "#e8eef6"; g.font = `${last ? 700 : 500} 32px sans-serif`;
+      g.fillText(t, x + 100, cy);
+    });
+  });
+
+  // colour key + footer
+  const ky = H - 85, kx = W - pad - 620;
+  const grad = g.createLinearGradient(kx, 0, kx + 420, 0);
+  D.scale.stops.forEach((c, i) => grad.addColorStop(i / (D.scale.stops.length - 1), c));
+  g.fillStyle = "#9fb0c6"; g.font = "600 26px sans-serif"; g.fillText(`Pressure (${D.unit})`, kx - 250, ky + 9);
+  g.fillStyle = grad; rr(g, kx, ky - 10, 420, 22, 11); g.fill();
+  g.fillStyle = "#9fb0c6"; g.font = "500 22px sans-serif";
+  g.fillText(D.scale.ticks[0], kx, ky + 46); g.textAlign = "right"; g.fillText(D.scale.ticks[2], kx + 420, ky + 46);
+  g.textAlign = "left"; g.fillStyle = "#8b95a5"; rr(g, kx + 470, ky - 10, 22, 22, 4); g.fill();
+  g.fillStyle = "#9fb0c6"; g.fillText("not measured", kx + 505, ky + 9);
+  g.font = "italic 24px sans-serif"; g.fillText("For patient education. Not a diagnostic report.", pad, ky + 9);
+  return page;
+}
+
+function saveHandout() { download(handoutCanvas(), "venous_handout.png"); }
+
+function printHandout() {
+  const url = handoutCanvas().toDataURL("image/png");
+  const html = `<!doctype html><title>Venous handout</title><style>@page{size:landscape;margin:0}
+    body{margin:0;background:#0b1424}img{width:100%;display:block}</style>
+    <img src="${url}" onload="setTimeout(()=>print(),300)">`;
+  window.open(URL.createObjectURL(new Blob([html], { type: "text/html" })), "_blank");
+}
+
+// ---------- controls ----------
+function wire(id, cb, exclusive) {
+  document.querySelectorAll(`#${id} button`).forEach((b) => b.addEventListener("click", () => {
+    if (exclusive) document.querySelectorAll(`#${id} button`).forEach((x) => x.classList.toggle("on", x === b));
+    cb(b.dataset.v, b);
+  }));
+}
+wire("g-phase", (v) => { state.phase = v; apply(); }, true);
+wire("g-view", (v) => goTo(v), true);
+wire("g-layers", (v) => { state[v] = !state[v]; apply(); });
+wire("g-main", (v, b) => {
+  if (v === "more") {
+    const open = $("bar2").style.display !== "flex";
+    $("bar2").style.display = open ? "flex" : "none";
+    b.classList.toggle("on", open); b.textContent = open ? "More ▴" : "More ▾";
+  } else if (v === "handout") {
+    saveHandout();
+  } else if (v === "full") {
+    if (document.fullscreenEnabled) {
+      document.fullscreenElement ? document.exitFullscreen() : $("wrap").requestFullscreen();
+    } else {   // inside a frame that can't go full screen: open the same view in a new tab
+      window.open(URL.createObjectURL(new Blob([SOURCE], { type: "text/html" })), "_blank");
+    }
+  } else { state[v] = !state[v]; apply(); }
+});
+$("save").addEventListener("click", savePicture);
+$("print").addEventListener("click", printHandout);
+
+// ---------- size + loop ----------
+function resize() {
+  const w = host.clientWidth, h = host.clientHeight;
+  renderer.setSize(w, h); labelR.setSize(w, h);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", resize);
+resize(); goTo("back", true); apply();
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (tween) {
+    const k = Math.min(1, (now - tween.t0) / 550), e = k * k * (3 - 2 * k);
+    camera.position.lerpVectors(tween.from, tween.to, e);
+    if (k >= 1) tween = null;
+  }
+  if (state.flow) stepFlow(dt);
+  controls.update();
+  renderer.render(scene, camera); labelR.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

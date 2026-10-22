@@ -1,0 +1,4 @@
+{
+  "endpoint": "",
+  "_help": "Paste the Apps Script web-app URL (ends in /exec) into endpoint. See storage/README.md."
+}

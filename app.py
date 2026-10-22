@@ -28,6 +28,7 @@ st.set_page_config(page_title="Venous Pressure Map", page_icon=":material/vital_
                    layout="wide")
 
 ROOT = Path(__file__).parent
+SITE = "https://jonah-keller.github.io/venous-pressure-map/"
 CSS = """
 <style>
 .block-container {padding-top: 1.2rem; max-width: 1280px;}
@@ -39,6 +40,8 @@ header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSideb
   color: #fff; border-radius: 14px; padding: 20px 26px; margin-bottom: 16px;}
 .hero h1 {color: #fff; font-size: 1.7rem; margin: 0 0 4px; padding: 0; font-weight: 700;}
 .hero p {margin: 0; opacity: .88; font-size: .98rem;}
+.hero .survey {float: right; background: #fff; color: #13294b !important; text-decoration: none;
+  font-weight: 700; font-size: .95rem; padding: 9px 16px; border-radius: 10px; margin-top: 4px;}
 .sec {display: flex; align-items: center; gap: 10px; font-size: 1.15rem; font-weight: 700;
   color: #13294b; margin: 0 0 2px;}
 .sec .n {width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
@@ -247,7 +250,8 @@ def footer() -> None:
 def main() -> None:
     init_state()
     st.markdown(CSS, unsafe_allow_html=True)
-    st.markdown('<div class="hero"><h1>Venous Pressure Map</h1>'
+    st.markdown(f'<div class="hero"><a class="survey" href="{SITE}survey.html" target="_blank">'
+                'Patient survey ↗</a><h1>Venous Pressure Map</h1>'
                 '<p>Show a patient where the pressure builds up, where the vein narrows, '
                 'and what a stent changes.</p></div>', unsafe_allow_html=True)
     step_readings()

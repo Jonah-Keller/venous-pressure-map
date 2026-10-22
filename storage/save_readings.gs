@@ -1,10 +1,12 @@
 /**
- * Venous Pressure Map: save each case to this Google Sheet.
+ * Venous Pressure Map: save cases and survey answers to this Google Sheet.
  *
- * The website sends one row per case: study ID, procedure date, unit, side,
- * every reading (before / after stent), where the narrowing is, and the
- * gradient. No names or MRNs. The study ID -> MRN key lives only in the secure
- * team folder.
+ * Two tabs, filled by the website:
+ *   "Readings": one row per case (study ID, procedure date, unit, side, every
+ *     reading before / after stent, where the narrowing is, the gradient).
+ *   "Survey": one row per anonymous patient survey (Timestamp + one column per
+ *     question title, the same layout as a Google Forms export).
+ * No names or MRNs. The study ID -> MRN key lives only in the secure team folder.
  *
  * Set up once (about 5 minutes), with the study/clinic Google account:
  *   1. Make a new Google Sheet, e.g. "Venous pressure records".
@@ -20,6 +22,7 @@
  * After editing this script: Deploy -> Manage deployments -> edit -> New version.
  */
 const SHEET_NAME = "Readings";
+const SURVEY_SHEET = "Survey";
 const ID_PATTERN = /^[A-Za-z]{1,6}-?\d{1,6}$/;   // e.g. VP-0001. Rejects MRN-like numbers.
 
 function doPost(e) {
@@ -28,6 +31,7 @@ function doPost(e) {
     const expected = PropertiesService.getScriptProperties().getProperty("PASSCODE");
     if (!expected) return reply_({ ok: false, error: "Saving is not set up: add a PASSCODE script property." });
     if (body.passcode !== expected) return reply_({ ok: false, error: "Wrong team passcode." });
+    if (body.kind === "survey") return saveSurvey_(body.response || {});
 
     const r = body.record || {};
     const id = String(r.study_id || "").trim();
@@ -53,6 +57,26 @@ function doPost(e) {
     }
   } catch (err) {
     return reply_({ ok: false, error: String(err) });
+  }
+}
+
+/** Append one anonymous survey response. Columns follow the question titles. */
+function saveSurvey_(r) {
+  if (!r["Clinic code"] || !r.Timestamp) return reply_({ ok: false, error: "Survey answer is incomplete." });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SURVEY_SHEET) || ss.insertSheet(SURVEY_SHEET);
+    const lastCol = sheet.getLastColumn();
+    const header = lastCol ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].filter(String) : [];
+    for (const k of ["Timestamp"].concat(Object.keys(r))) if (header.indexOf(k) < 0) header.push(k);
+    sheet.getRange(1, 1, 1, header.length).setValues([header]).setFontWeight("bold");
+    sheet.setFrozenRows(1);
+    sheet.appendRow(header.map((k) => (r[k] === undefined || r[k] === null ? "" : r[k])));
+    return reply_({ ok: true });
+  } finally {
+    lock.releaseLock();
   }
 }
 

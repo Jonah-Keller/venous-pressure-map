@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Patient survey</title>
+<!--
+  Patient-education survey, on the same website as the app.
+
+  The questions are read from survey/build_form.gs (the SURVEY block between the
+  BEGIN/END markers), the same definition the analysis uses via answer_key.json,
+  so there is one list of questions. Answers are sent to the "Survey" tab of the
+  study Google Sheet (endpoint in storage.json, script in storage/save_readings.gs)
+  as one row: "Timestamp" plus one column per question title, the same layout as
+  a Google Forms export, so survey/analyze_survey.py reads it unchanged.
+
+  Anonymous: no names, MRNs or study IDs. Staff pick the clinic code (A/B) on the
+  set-up screen, which the patient does not see.
+-->
+<style>
+  :root { --navy:#13294b; --blue:#1f4e79; --sky:#2c7bb6; --ink:#1b2533; --mut:#5b6b7f; --line:#dfe5ee;
+          --bg:#f5f7fb; --ok:#1e7a4b; --bad:#b3261e; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+  header { background:linear-gradient(120deg,#13294b 0%,#1f4e79 60%,#2c7bb6 100%); color:#fff; padding:18px 24px; }
+  header h1 { margin:0; font-size:1.45rem; }
+  header p { margin:4px 0 0; opacity:.85; font-size:.95rem; }
+  main { max-width:760px; margin:0 auto; padding:22px 16px 60px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:24px; margin-bottom:16px; }
+  h2 { margin:0 0 6px; font-size:1.4rem; color:var(--navy); }
+  .help { color:var(--mut); font-size:1.02rem; line-height:1.5; white-space:pre-line; margin:0 0 6px; }
+  .q { margin:22px 0 0; padding-top:18px; border-top:1px solid var(--line); }
+  .q:first-of-type { border-top:0; padding-top:0; }
+  .qt { font-size:1.15rem; font-weight:600; line-height:1.4; margin-bottom:4px; }
+  .qt .req { color:var(--bad); margin-left:4px; }
+  .qh { color:var(--mut); font-size:.95rem; margin-bottom:8px; }
+  .opts { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .opt { display:flex; align-items:center; gap:12px; padding:14px 16px; border:2px solid var(--line);
+    border-radius:12px; cursor:pointer; font-size:1.05rem; background:#fff; text-align:left; width:100%; }
+  .opt:hover { border-color:#b8c7da; }
+  .opt.on { border-color:var(--sky); background:#eaf3fb; }
+  .opt .dot { width:22px; height:22px; border-radius:50%; border:2px solid #9fb0c6; flex:none; }
+  .opt.box .dot { border-radius:6px; }
+  .opt.on .dot { border-color:var(--sky); background:var(--sky); box-shadow:inset 0 0 0 4px #fff; }
+  .scale { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:10px; }
+  .scale button { padding:16px 0; font-size:1.3rem; font-weight:700; border:2px solid var(--line);
+    border-radius:12px; background:#fff; cursor:pointer; color:var(--ink); }
+  .scale button.on { border-color:var(--sky); background:var(--sky); color:#fff; }
+  .anchors { display:flex; justify-content:space-between; color:var(--mut); font-size:.92rem; margin-top:6px; gap:12px; }
+  .anchors span:last-child { text-align:right; }
+  textarea { width:100%; min-height:110px; font:inherit; font-size:1.05rem; padding:12px; border:2px solid var(--line);
+    border-radius:12px; margin-top:8px; }
+  .missing .qt { color:var(--bad); }
+  .nav { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:8px; }
+  .btn { font:600 1.05rem inherit; padding:14px 24px; border-radius:12px; border:0; cursor:pointer; }
+  .btn.primary { background:var(--blue); color:#fff; }
+  .btn.ghost { background:transparent; color:var(--mut); border:2px solid var(--line); }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .progress { height:8px; background:#e3e9f2; border-radius:4px; overflow:hidden; margin:0 0 16px; }
+  .progress div { height:100%; background:var(--sky); width:0; transition:width .3s; }
+  .msg { min-height:22px; margin-top:10px; font-size:.98rem; color:var(--mut); }
+  .msg.bad { color:var(--bad); } .msg.ok { color:var(--ok); }
+  .codes { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; }
+  .codes button { padding:26px 0; font-size:2rem; font-weight:800; border:3px solid var(--line); border-radius:14px;
+    background:#fff; cursor:pointer; color:var(--navy); }
+  .codes button.on { border-color:var(--sky); background:#eaf3fb; }
+  input[type=password] { font:inherit; font-size:1rem; padding:12px; border:2px solid var(--line); border-radius:10px; width:240px; }
+  .staff { font-size:.85rem; color:var(--mut); text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
+  .center { text-align:center; }
+  .big { font-size:1.25rem; line-height:1.55; }
+  a { color:var(--blue); }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="ftitle">Patient survey</h1>
+  <p id="fdesc">A short, anonymous survey.</p>
+</header>
+<main id="app"><div class="card">Loading…</div></main>
+
+<script>
+const app = document.getElementById("app");
+const bust = Date.now();
+let S, ENDPOINT = "", answers = {}, page = 0, pages = [], code = null;
+
+// ---------- load the single question definition ----------
+async function load() {
+  const gs = await (await fetch(`survey/build_form.gs?v=${bust}`)).text();
+  const a = gs.indexOf("const SURVEY = ") + "const SURVEY = ".length, b = gs.indexOf("// ===== END SURVEY =====");
+  S = JSON.parse(gs.slice(a, b).trim().replace(/;\s*$/, ""));
+  try { ENDPOINT = (await (await fetch(`storage.json?v=${bust}`)).json()).endpoint || ""; } catch (e) {}
+  document.getElementById("ftitle").textContent = S.formTitle;
+  document.getElementById("fdesc").textContent = S.formDescription;
+  // patient pages = every section except the staff one (staff choose the code on set-up)
+  pages = S.sections.filter((s) => !s.items.some((i) => i.code === "group"));
+  retryQueue();
+  staffScreen();
+}
+
+const groupItem = () => S.sections.flatMap((s) => s.items).find((i) => i.code === "group");
+const pass = () => { try { return localStorage.getItem("vpm_passcode") || ""; } catch (e) { return ""; } };
+const el = (html) => { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; };
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- staff set-up ----------
+function staffScreen(note) {
+  answers = {}; page = 0; code = null;
+  app.innerHTML = "";
+  const c = el(`<div class="card">
+    <div class="staff">For clinic staff</div>
+    <h2>Set up the survey</h2>
+    <p class="help">Choose the clinic code for this patient, then hand over the screen.</p>
+    <div class="codes">${groupItem().options.map((o) => `<button data-c="${esc(o)}">${esc(o)}</button>`).join("")}</div>
+    <div id="passrow" style="margin-top:18px; display:${pass() ? "none" : "block"}">
+      <div class="qh">Team passcode (asked once on this computer)</div>
+      <input type="password" id="pw" autocomplete="off" />
+    </div>
+    <div class="nav" style="margin-top:20px"><a href="./">← Back to the pressure app</a>
+      <button class="btn primary" id="go" disabled>Hand to the patient →</button></div>
+    <div class="msg" id="msg">${note || (ENDPOINT ? "" : "Saving isn't set up yet (see storage/README.md): answers will be kept on this computer until it is.")}</div>
+  </div>`);
+  app.appendChild(c);
+  c.querySelectorAll(".codes button").forEach((b) => b.onclick = () => {
+    code = b.dataset.c;
+    c.querySelectorAll(".codes button").forEach((x) => x.classList.toggle("on", x === b));
+    c.querySelector("#go").disabled = false;
+  });
+  c.querySelector("#go").onclick = () => {
+    const pw = c.querySelector("#pw").value;
+    if (pw) { try { localStorage.setItem("vpm_passcode", pw); } catch (e) {} }
+    answers[groupItem().title] = code;
+    showPage();
+  };
+}
+
+// ---------- patient pages ----------
+function showPage(flagMissing) {
+  const sec = pages[page];
+  app.innerHTML = "";
+  app.appendChild(el(`<div class="progress"><div style="width:${Math.round((page / pages.length) * 100)}%"></div></div>`));
+  const c = el(`<div class="card"><h2>${esc(sec.title)}</h2>${sec.help ? `<p class="help">${esc(sec.help)}</p>` : ""}</div>`);
+  for (const it of sec.items) c.appendChild(question(it, flagMissing));
+  const last = page === pages.length - 1;
+  const nav = el(`<div class="nav"><button class="btn ghost" id="back" ${page === 0 ? "disabled" : ""}>← Back</button>
+    <button class="btn primary" id="next">${last ? "Submit" : "Next →"}</button></div>`);
+  c.appendChild(nav);
+  c.appendChild(el(`<div class="msg bad" id="msg">${flagMissing ? "Please answer the questions marked in red." : ""}</div>`));
+  app.appendChild(c);
+  nav.querySelector("#back").onclick = () => { page--; showPage(); window.scrollTo(0, 0); };
+  nav.querySelector("#next").onclick = () => {
+    const missing = sec.items.filter((it) => it.required && !answered(it));
+    if (missing.length) { showPage(true); return; }
+    const consent = sec.items.find((it) => it.endFormOn);
+    if ((consent && answers[consent.title] === consent.endFormOn) || last) { submit(); return; }
+    page++; showPage(); window.scrollTo(0, 0);
+  };
+}
+
+function answered(it) {
+  const v = answers[it.title];
+  return Array.isArray(v) ? v.length > 0 : v !== undefined && v !== "";
+}
+
+function question(it, flagMissing) {
+  const miss = flagMissing && it.required && !answered(it);
+  const q = el(`<div class="q${miss ? " missing" : ""}"><div class="qt">${esc(it.title)}${it.required ? '<span class="req">*</span>' : ""}</div>
+    ${it.help ? `<div class="qh">${esc(it.help)}</div>` : ""}</div>`);
+  const v = answers[it.title];
+  if (it.type === "scale") {
+    const row = el(`<div class="scale">${[1, 2, 3, 4, 5].map((n) => `<button class="${v === n ? "on" : ""}">${n}</button>`).join("")}</div>`);
+    row.querySelectorAll("button").forEach((b, i) => b.onclick = () => { answers[it.title] = i + 1; refresh(row, i); });
+    q.appendChild(row);
+    q.appendChild(el(`<div class="anchors"><span>1 = ${esc(it.lowLabel)}</span><span>5 = ${esc(it.highLabel)}</span></div>`));
+  } else if (it.type === "multiple_choice" || it.type === "dropdown" || it.type === "checkbox") {
+    const multi = it.type === "checkbox";
+    const box = el(`<div class="opts"></div>`);
+    it.options.forEach((o) => {
+      const on = multi ? (v || []).includes(o) : v === o;
+      const b = el(`<button class="opt${multi ? " box" : ""}${on ? " on" : ""}"><span class="dot"></span><span>${esc(o)}</span></button>`);
+      b.onclick = () => {
+        if (multi) {
+          const cur = new Set(answers[it.title] || []);
+          cur.has(o) ? cur.delete(o) : cur.add(o);
+          answers[it.title] = it.options.filter((x) => cur.has(x));      // keep form order
+          b.classList.toggle("on");
+        } else {
+          answers[it.title] = o;
+          box.querySelectorAll(".opt").forEach((x) => x.classList.toggle("on", x === b));
+        }
+      };
+      box.appendChild(b);
+    });
+    q.appendChild(box);
+  } else if (it.type === "paragraph") {
+    const t = el(`<textarea placeholder="Type here (optional)"></textarea>`);
+    t.value = v || ""; t.oninput = () => (answers[it.title] = t.value);
+    q.appendChild(t);
+  }
+  return q;
+}
+function refresh(row, i) { row.querySelectorAll("button").forEach((b, j) => b.classList.toggle("on", j === i)); }
+
+// ---------- submit (with an on-this-computer queue if offline) ----------
+function rowOut() {
+  const pad = (n) => String(n).padStart(2, "0"), d = new Date();
+  const row = { Timestamp: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` };
+  for (const sec of S.sections) for (const it of sec.items) {
+    const v = answers[it.title];
+    row[it.title] = Array.isArray(v) ? v.join(", ") : (v === undefined ? "" : v);
+  }
+  return row;
+}
+const queue = () => { try { return JSON.parse(localStorage.getItem("vpm_survey_queue") || "[]"); } catch (e) { return []; } };
+const setQueue = (q) => { try { localStorage.setItem("vpm_survey_queue", JSON.stringify(q)); } catch (e) {} };
+
+async function send(row) {
+  if (!ENDPOINT) return false;
+  try {
+    const r = await fetch(ENDPOINT, { method: "POST", body: JSON.stringify({ kind: "survey", passcode: pass(), response: row }) });
+    const out = await r.json();
+    if (!out.ok && /passcode/i.test(out.error || "")) { try { localStorage.removeItem("vpm_passcode"); } catch (e) {} }
+    return !!out.ok;
+  } catch (e) { return false; }
+}
+async function retryQueue() {
+  const q = queue(); if (!q.length || !ENDPOINT) return;
+  const left = [];
+  for (const row of q) if (!(await send(row))) left.push(row);
+  setQueue(left);
+}
+async function submit() {
+  const row = rowOut();
+  app.innerHTML = `<div class="card center"><p class="big">Sending…</p></div>`;
+  const ok = await send(row);
+  if (!ok) setQueue(queue().concat([row]));
+  app.innerHTML = "";
+  const c = el(`<div class="card center">
+    <h2>Thank you</h2><p class="big">${esc(S.confirmationMessage)}</p>
+    <p class="msg ${ok ? "ok" : ""}">${ok ? "Your answers were sent." : "Your answers are saved on this computer and will be sent automatically next time."}</p>
+    <div style="margin-top:26px"><button class="btn ghost" id="again">Staff: start a new survey</button></div>
+  </div>`);
+  app.appendChild(c);
+  c.querySelector("#again").onclick = () => staffScreen(queue().length ? `${queue().length} answer set(s) waiting to be sent from this computer.` : "");
+}
+
+load().catch((e) => { app.innerHTML = `<div class="card">Couldn't load the survey (${esc(e.message)}).</div>`; });
+</script>
+</body>
+</html>

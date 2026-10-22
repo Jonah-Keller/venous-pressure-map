@@ -28,16 +28,18 @@ the page:
    date, then click **Save to study records**. Write the study ID next to the
    MRN in the secure key file, which lives only in the team folder.
 
-Then give the patient a tablet open to a **fresh Group A survey link**.
+Then click **Patient survey ↗** (top right of the app), tap clinic code **A**,
+and hand the screen to the patient. Answers go straight to the study sheet.
 
-**Group B:** have the usual talk, save the readings the same way, and give a
-fresh **Group B** link.
+**Group B:** have the usual talk, save the readings the same way, open the
+survey and tap **B**.
 
 Practise once with **Fill in example values**.
 
 ## 2. Records
 
-- Readings are saved in the study Google Sheet. Setup is in
+- Readings (tab **Readings**) and survey answers (tab **Survey**) are saved in
+  the same study Google Sheet. Setup is in
   [storage/README.md](../storage/README.md).
 - Never type names or MRNs into the app, the sheet, or the survey.
 - The 3D anatomy is an example scan from open data, not the patient's own.
@@ -45,8 +47,9 @@ Practise once with **Fill in example values**.
 
 ## 3. Survey
 
-Building the Google Form, making the A/B links, and analysing the results are
-covered in [survey/README.md](../survey/README.md). In short:
+The survey is a page on the same website (`survey.html`). Answers land in the
+**Survey** tab of the study sheet. To analyse, download that tab as CSV
+(**File → Download → CSV**) and run:
 
 ```bash
 python survey/analyze_survey.py responses.csv --out survey/results/
@@ -70,6 +73,8 @@ streamlit run app.py
 | Change the cause-and-effect text or the handout layout | `CHAIN` and `handoutCanvas()` in `venous/viewer3d.html` |
 | Add or rename a location | `LOCATIONS`, `CANONICAL`, `PLAIN` in `venous/anatomy.py`, and `ANCHORS` in `venous/sinus3d.py` |
 | Change how big a drop counts as a narrowing | `MIN_DROP_MMHG` in `venous/anatomy.py` |
+| Change a survey question | `survey/build_form.gs` (SURVEY block) **and** `survey/answer_key.json`, then `pytest` |
+| Change the survey page's look | `survey.html` |
 | Change the colour scale | top of `venous/render.py` |
 | Rebuild the 3D anatomy | `tools/build_example_scan.py` (instructions at the top) |
 

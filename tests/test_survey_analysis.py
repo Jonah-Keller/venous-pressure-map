@@ -166,3 +166,17 @@ def test_end_to_end_synthetic(tmp_path):
     assert c["declined"] == 2 and c["analysed"] == c["rows"] - 2
     k = res["data"]["Knowledge"]
     assert k.between(0, 1).all()
+
+
+def test_survey_page_can_render_every_question():
+    """survey.html reads the SURVEY block of build_form.gs; it supports these types."""
+    import json
+    gs = (Path(__file__).resolve().parents[1] / "survey" / "build_form.gs").read_text()
+    a = gs.index("const SURVEY = ") + len("const SURVEY = ")
+    survey = json.loads(gs[a:gs.index("// ===== END SURVEY =====")].strip().rstrip(";"))
+    items = [it for sec in survey["sections"] for it in sec["items"]]
+    assert {it["type"] for it in items} <= {"multiple_choice", "dropdown", "scale", "checkbox", "paragraph"}
+    assert any(it["code"] == "group" for it in items)                  # staff pick A/B
+    assert all("lowLabel" in it and "highLabel" in it for it in items if it["type"] == "scale")
+    html = (Path(__file__).resolve().parents[1] / "survey.html").read_text()
+    assert "survey/build_form.gs" in html and "Timestamp" in html

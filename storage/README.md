@@ -1,8 +1,15 @@
 # Saving cases to the study sheet
 
-The website's **Save to study records** button sends one row per case to a
-Google Sheet: study ID, procedure date, unit, side, every reading (before and
-after stent), where the narrowing is, and the gradient. **No names or MRNs.**
+The website sends two kinds of rows to one Google Sheet:
+
+- **Readings** tab: the app's **Save to study records** button, one row per
+  case (study ID, procedure date, unit, side, every reading before and after
+  stent, where the narrowing is, the gradient).
+- **Survey** tab: the patient survey page (`survey.html`), one anonymous row
+  per patient, with the same columns as a Google Forms export. The analysis
+  script reads it directly.
+
+**No names or MRNs.**
 
 The study ID ↔ MRN key is a separate file kept only in the secure team folder
 (for example Penn Box). Add a row there each time you give out a new ID.
@@ -25,8 +32,8 @@ is approved.
    root (`"endpoint": "https://script.google.com/macros/s/…/exec"`). Then commit
    and push.
 
-The first time someone saves, the website asks for the passcode and remembers
-it in that browser.
+The first time someone saves, or sets up a survey on a computer, the website
+asks for the passcode and remembers it in that browser.
 
 ## Good to know
 
@@ -38,3 +45,5 @@ it in that browser.
   deployment, choose **New version**, then **Deploy**. The URL stays the same.
 - **If saving isn't set up,** or the internet is down, use **Readings (CSV)**
   and paste the row into the sheet by hand.
+- **Survey offline:** if the internet drops, the answers are kept on that
+  computer and sent automatically the next time the survey page opens.

@@ -1,3 +1,11 @@
+> **Use the website survey.** Patients now fill out the survey on the project
+> website (`survey.html`, linked as **Patient survey ↗** in the app). Answers go
+> to the **Survey** tab of the study sheet (see `storage/README.md`). The page
+> reads its questions from the SURVEY block in `build_form.gs`, so that block
+> plus `answer_key.json` are still the one place to change questions. The
+> Google Form route below is a backup, for example for a clinic that wants a
+> Forms link or QR code instead.
+
 # Patient education survey (venous sinus stenting QI project)
 
 Patients considering venous sinus stenting (usually for idiopathic intracranial

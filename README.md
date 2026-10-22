@@ -7,9 +7,9 @@ It has two parts:
    finds the narrowing from the pressures and shows it on a 3D model of real
    sinus anatomy, with before/after stent and a blood-flow simulation. It then
    saves the case under a study ID to the study sheet.
-2. **The survey** (`survey/`). An anonymous Google Form that patients fill out
-   after the discussion, plus the script that compares Group A (shown the 3D picture)
-   with Group B (verbal only).
+2. **The survey** (`survey.html` + `survey/`). An anonymous patient survey page
+   on the same website (answers go to the study sheet), plus the script that
+   compares Group A (shown the 3D picture) with Group B (verbal only).
 
 **Live site:** https://jonah-keller.github.io/venous-pressure-map/ (runs entirely in your
 browser; the first load takes about 20 s).
@@ -43,7 +43,8 @@ Click **Fill in example values** in the app to see everything working.
 | `tools/build_example_scan.py` | Rebuilds that file from the source CT (segmentation + meshing) |
 | `.streamlit/config.toml` | Theme colours and upload limit (local runs) |
 | `index.html`, `.nojekyll` | GitHub Pages site (stlite runs the app in the browser) |
-| `survey/` | Google Form builder, answer key, analysis script ([survey/README.md](survey/README.md)) |
+| `survey.html` | The patient survey page (questions read from `survey/build_form.gs`) |
+| `survey/` | Question definition, answer key, analysis script, Google Form backup ([survey/README.md](survey/README.md)) |
 | `tests/` | pytest suite for the app logic and the survey analysis |
 | `deprecated/` | Old prototypes, kept for reference only |
 
